@@ -22,7 +22,7 @@ router.post("/password-reset/:token", resetPassword);
 router.get(
   "/caretaker-only",
   protect,
-  authorize("CARETaker"),
+  authorize("CARETAKER"),
   (req, res) => {
     res.json({ message: "Welcome Caretaker" });
   }
