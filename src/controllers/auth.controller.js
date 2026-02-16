@@ -165,3 +165,29 @@ export const resetPassword = async (req, res) => {
 
   return res.json({ message: "Password reset successful" });
 };
+
+
+
+/**
+ * GET CURRENT USER
+ */
+export const getCurrentUser = async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+      },
+    });
+
+    return res.json(user);
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Failed to fetch user" });
+  }
+};

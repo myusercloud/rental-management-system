@@ -218,3 +218,37 @@ export const deleteTenant = async (req, res) => {
     return res.status(500).json({ message: "Failed to delete tenant" });
   }
 };
+
+
+/**
+ * GET MY PROFILE (TENANT ONLY)
+ */
+export const getMyTenantProfile = async (req, res) => {
+  try {
+    const tenant = await prisma.tenant.findFirst({
+      where: {
+        userId: req.user.id,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!tenant) {
+      return res.status(404).json({ message: "Tenant profile not found" });
+    }
+
+    return res.json(tenant);
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Failed to fetch profile" });
+  }
+};

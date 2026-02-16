@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  getCurrentUser,
   register,
   login,
   activateAccount,
@@ -17,6 +18,8 @@ router.post("/login", login);
 router.get("/activate/:token", activateAccount);
 router.post("/password-reset", requestPasswordReset);
 router.post("/password-reset/:token", resetPassword);
+
+router.get("/me", protect, getCurrentUser);
 
 // Example: Caretaker-only route
 router.get(
