@@ -15,7 +15,6 @@ const router = express.Router();
 
 
 
-// Only CARETAKER can manage tenants
 router.post("/", protect, authorize("CARETAKER"), createTenant);
 router.get("/", protect, authorize("CARETAKER"), getAllTenants);
 

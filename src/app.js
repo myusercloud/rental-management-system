@@ -13,7 +13,8 @@ app.use(express.json());
 
 // Register routes
 app.use("/api/auth", authRoutes);
-app.use("/api/tenants", tenantRoutes); // 👈 ADD THIS
+app.use("/api/tenants", tenantRoutes);
+app.use("/api/units", unitRoutes);
 
 app.get("/", (req, res) => {
   res.json({

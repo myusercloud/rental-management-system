@@ -13,6 +13,8 @@ export const createTenant = async (req, res) => {
       phone,
       nationalId,
       emergencyContact,
+      unitId,
+      leaseStartDate,
     } = req.body;
 
     const existingUser = await prisma.user.findUnique({
@@ -23,40 +25,65 @@ export const createTenant = async (req, res) => {
       return res.status(400).json({ message: "Email already exists" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role: "TENANT",
-        isActive: true,
-      },
+    const unit = await prisma.unit.findUnique({
+      where: { id: unitId },
     });
 
-    const tenant = await prisma.tenant.create({
-      data: {
-        userId: user.id,
-        phone,
-        nationalId,
-        emergencyContact,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-          },
+    if (!unit) {
+      return res.status(404).json({ message: "Unit not found" });
+    }
+
+    if (unit.status === "OCCUPIED") {
+      return res.status(400).json({ message: "Unit already occupied" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name,
+          email,
+          password: hashedPassword,
+          role: "TENANT",
+          isActive: true,
         },
-      },
+      });
+
+      const tenant = await tx.tenant.create({
+        data: {
+          userId: user.id,
+          phone,
+          nationalId,
+          emergencyContact,
+          unitId,
+          leaseStartDate: new Date(leaseStartDate),
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          unit: true,
+        },
+      });
+
+      await tx.unit.update({
+        where: { id: unitId },
+        data: {
+          status: "OCCUPIED",
+        },
+      });
+
+      return tenant;
     });
 
     return res.status(201).json({
-      message: "Tenant created successfully",
-      tenant,
+      message: "Tenant created and unit assigned successfully",
+      tenant: result,
     });
 
   } catch (error) {
@@ -64,6 +91,7 @@ export const createTenant = async (req, res) => {
     return res.status(500).json({ message: "Failed to create tenant" });
   }
 };
+
 
 /**
  * GET ALL TENANTS
@@ -81,6 +109,7 @@ export const getAllTenants = async (req, res) => {
             isActive: true,
           },
         },
+        unit: true,
       },
       orderBy: {
         createdAt: "desc",
@@ -114,6 +143,7 @@ export const getTenantById = async (req, res) => {
             isActive: true,
           },
         },
+        unit: true,
       },
     });
 
@@ -206,18 +236,29 @@ export const deleteTenant = async (req, res) => {
       return res.status(404).json({ message: "Tenant not found" });
     }
 
-    // Deleting user will cascade delete tenant
-    await prisma.user.delete({
-      where: { id: tenant.userId },
+    await prisma.$transaction(async (tx) => {
+      if (tenant.unitId) {
+        await tx.unit.update({
+          where: { id: tenant.unitId },
+          data: {
+            status: "AVAILABLE",
+          },
+        });
+      }
+
+      await tx.user.delete({
+        where: { id: tenant.userId },
+      });
     });
 
-    return res.json({ message: "Tenant deleted successfully" });
+    return res.json({ message: "Tenant deleted and unit freed successfully" });
 
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Failed to delete tenant" });
   }
 };
+
 
 
 /**
