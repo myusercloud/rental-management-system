@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth.routes.js";
 import tenantRoutes from "./routes/tenant.routes.js"
+import unitRoutes from "./routes/unit.routes.js";
 
 dotenv.config();
 

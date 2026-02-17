@@ -132,6 +132,22 @@ export const getUnitById = async (req, res) => {
   }
 };
 
+export const updateUnit = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const unit = await prisma.unit.update({
+      where: { id },
+      data: req.body,
+    });
+
+    res.json({ message: "Unit updated", unit });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to update unit" });
+  }
+};
+
+
 /**
  * DELETE UNIT
  * Only allowed if unit is AVAILABLE
