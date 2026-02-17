@@ -146,6 +146,81 @@ export const updateUnit = async (req, res) => {
     res.status(500).json({ message: "Failed to update unit" });
   }
 };
+/**
+ * GET DASHBOARD STATS
+ */
+export const getUnitStats = async (req, res) => {
+  try {
+    const totalUnits = await prisma.unit.count();
+
+    const occupiedUnits = await prisma.unit.count({
+      where: { status: "OCCUPIED" },
+    });
+
+    const availableUnits = await prisma.unit.count({
+      where: { status: "AVAILABLE" },
+    });
+
+    // Get building + status only
+    const units = await prisma.unit.findMany({
+      select: {
+        building: true,
+        status: true,
+      },
+    });
+
+    // Group by building
+    const buildingMap = {};
+
+    units.forEach((unit) => {
+      if (!buildingMap[unit.building]) {
+        buildingMap[unit.building] = {
+          total: 0,
+          occupied: 0,
+          vacant: 0,
+        };
+      }
+
+      buildingMap[unit.building].total += 1;
+
+      if (unit.status === "OCCUPIED") {
+        buildingMap[unit.building].occupied += 1;
+      } else {
+        buildingMap[unit.building].vacant += 1;
+      }
+    });
+
+    // Format response for frontend
+    const buildingCapacity = Object.entries(buildingMap)
+      .map(([building, data]) => ({
+        building,
+        total: data.total,
+        occupied: data.occupied,
+        vacant: data.vacant,
+        percentage:
+          data.total === 0
+            ? 0
+            : Math.round((data.occupied / data.total) * 100),
+      }))
+      .sort((a, b) => a.building.localeCompare(b.building));
+
+    const occupancyRate =
+      totalUnits === 0
+        ? 0
+        : Math.round((occupiedUnits / totalUnits) * 100);
+
+    return res.json({
+      totalUnits,
+      occupiedUnits,
+      availableUnits,
+      occupancyRate,
+      buildingCapacity,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Failed to fetch stats" });
+  }
+};
 
 
 /**

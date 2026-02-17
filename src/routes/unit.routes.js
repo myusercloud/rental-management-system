@@ -10,6 +10,7 @@ import {
 import { protect } from "../middleware/auth.middleware.js";
 import { authorize } from "../middleware/role.middleware.js";
 import { updateUnit } from "../controllers/unit.controller.js";
+import { getUnitStats } from "../controllers/unit.controller.js";
 
 const router = express.Router();
 
@@ -19,6 +20,7 @@ const router = express.Router();
 router.post("/", protect, authorize("CARETAKER"), createUnit);
 router.get("/", protect, authorize("CARETAKER"), getAllUnits);
 router.get("/available", protect, authorize("CARETAKER"), getAvailableUnits);
+router.get("/stats", protect, authorize("CARETAKER"), getUnitStats);
 router.get("/:id", protect, authorize("CARETAKER"), getUnitById);
 router.put("/:id", protect, authorize("CARETAKER"), updateUnit);
 router.delete("/:id", protect, authorize("CARETAKER"), deleteUnit);
