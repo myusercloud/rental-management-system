@@ -31,14 +31,12 @@ model Tenant {
   nationalId       String?
   emergencyContact String?
 
-  unitId           String?  @unique
-  leaseStartDate   DateTime?
-
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  unit             Unit?    @relation(fields: [unitId], references: [id])
+
+  leases           Lease[]
 }
 
 model Unit {
@@ -49,10 +47,36 @@ model Unit {
   rentAmount  Float
   status      UnitStatus @default(AVAILABLE)
 
-  tenant      Tenant?
-
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  leases      Lease[]
+
+  @@unique([unitNumber, building])
+}
+
+model Lease {
+  id            String   @id @default(uuid())
+
+  tenantId      String
+  unitId        String
+
+  startDate     DateTime
+  endDate       DateTime?   // null = open-ended lease
+
+  depositAmount Float
+  depositPaid   Boolean  @default(false)
+
+  status        LeaseStatus @default(ACTIVE)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit          Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([unitId])
 }
 
 model Caretaker {
@@ -74,4 +98,9 @@ enum Role {
 enum UnitStatus {
   AVAILABLE
   OCCUPIED
+}
+
+enum LeaseStatus {
+  ACTIVE
+  TERMINATED
 }

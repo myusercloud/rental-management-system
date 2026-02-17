@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import authRoutes from "./routes/auth.routes.js";
 import tenantRoutes from "./routes/tenant.routes.js"
 import unitRoutes from "./routes/unit.routes.js";
+import leaseRoutes from "./routes/lease.routes.js";
 
 dotenv.config();
 
@@ -16,6 +17,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/tenants", tenantRoutes);
 app.use("/api/units", unitRoutes);
+app.use("/api/leases", leaseRoutes);
 
 app.get("/", (req, res) => {
   res.json({
