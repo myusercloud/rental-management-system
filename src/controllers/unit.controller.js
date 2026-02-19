@@ -44,6 +44,7 @@ export const createUnit = async (req, res) => {
   }
 };
 
+
 /**
  * GET ALL UNITS
  */
@@ -51,12 +52,17 @@ export const getAllUnits = async (req, res) => {
   try {
     const units = await prisma.unit.findMany({
       include: {
-        tenant: {
+        leases: {
+          where: { status: "ACTIVE" },
           include: {
-            user: {
-              select: {
-                name: true,
-                email: true,
+            tenant: {
+              include: {
+                user: {
+                  select: {
+                    name: true,
+                    email: true,
+                  },
+                },
               },
             },
           },
@@ -74,6 +80,7 @@ export const getAllUnits = async (req, res) => {
     return res.status(500).json({ message: "Failed to fetch units" });
   }
 };
+
 
 /**
  * GET AVAILABLE UNITS
@@ -97,6 +104,7 @@ export const getAvailableUnits = async (req, res) => {
   }
 };
 
+
 /**
  * GET SINGLE UNIT
  */
@@ -107,12 +115,16 @@ export const getUnitById = async (req, res) => {
     const unit = await prisma.unit.findUnique({
       where: { id },
       include: {
-        tenant: {
+        leases: {
           include: {
-            user: {
-              select: {
-                name: true,
-                email: true,
+            tenant: {
+              include: {
+                user: {
+                  select: {
+                    name: true,
+                    email: true,
+                  },
+                },
               },
             },
           },
@@ -132,20 +144,32 @@ export const getUnitById = async (req, res) => {
   }
 };
 
+
+/**
+ * UPDATE UNIT
+ */
 export const updateUnit = async (req, res) => {
   try {
     const { id } = req.params;
 
     const unit = await prisma.unit.update({
       where: { id },
-      data: req.body,
+      data: {
+        ...req.body,
+        rentAmount: req.body.rentAmount
+          ? parseFloat(req.body.rentAmount)
+          : undefined,
+      },
     });
 
     res.json({ message: "Unit updated", unit });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Failed to update unit" });
   }
 };
+
+
 /**
  * GET DASHBOARD STATS
  */
@@ -161,7 +185,6 @@ export const getUnitStats = async (req, res) => {
       where: { status: "AVAILABLE" },
     });
 
-    // Get building + status only
     const units = await prisma.unit.findMany({
       select: {
         building: true,
@@ -169,7 +192,6 @@ export const getUnitStats = async (req, res) => {
       },
     });
 
-    // Group by building
     const buildingMap = {};
 
     units.forEach((unit) => {
@@ -190,7 +212,6 @@ export const getUnitStats = async (req, res) => {
       }
     });
 
-    // Format response for frontend
     const buildingCapacity = Object.entries(buildingMap)
       .map(([building, data]) => ({
         building,
@@ -216,6 +237,7 @@ export const getUnitStats = async (req, res) => {
       occupancyRate,
       buildingCapacity,
     });
+
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Failed to fetch stats" });

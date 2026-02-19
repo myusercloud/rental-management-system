@@ -13,8 +13,6 @@ export const createTenant = async (req, res) => {
       phone,
       nationalId,
       emergencyContact,
-      unitId,
-      leaseStartDate,
     } = req.body;
 
     const existingUser = await prisma.user.findUnique({
@@ -23,18 +21,6 @@ export const createTenant = async (req, res) => {
 
     if (existingUser) {
       return res.status(400).json({ message: "Email already exists" });
-    }
-
-    const unit = await prisma.unit.findUnique({
-      where: { id: unitId },
-    });
-
-    if (!unit) {
-      return res.status(404).json({ message: "Unit not found" });
-    }
-
-    if (unit.status === "OCCUPIED") {
-      return res.status(400).json({ message: "Unit already occupied" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -56,8 +42,6 @@ export const createTenant = async (req, res) => {
           phone,
           nationalId,
           emergencyContact,
-          unitId,
-          leaseStartDate: new Date(leaseStartDate),
         },
         include: {
           user: {
@@ -67,14 +51,6 @@ export const createTenant = async (req, res) => {
               email: true,
             },
           },
-          unit: true,
-        },
-      });
-
-      await tx.unit.update({
-        where: { id: unitId },
-        data: {
-          status: "OCCUPIED",
         },
       });
 
@@ -82,7 +58,7 @@ export const createTenant = async (req, res) => {
     });
 
     return res.status(201).json({
-      message: "Tenant created and unit assigned successfully",
+      message: "Tenant created successfully",
       tenant: result,
     });
 
@@ -109,7 +85,12 @@ export const getAllTenants = async (req, res) => {
             isActive: true,
           },
         },
-        unit: true,
+        leases: {
+          where: { status: "ACTIVE" },
+          include: {
+            unit: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -123,6 +104,7 @@ export const getAllTenants = async (req, res) => {
     return res.status(500).json({ message: "Failed to fetch tenants" });
   }
 };
+
 
 /**
  * GET SINGLE TENANT
@@ -143,7 +125,11 @@ export const getTenantById = async (req, res) => {
             isActive: true,
           },
         },
-        unit: true,
+        leases: {
+          include: {
+            unit: true,
+          },
+        },
       },
     });
 
@@ -159,19 +145,14 @@ export const getTenantById = async (req, res) => {
   }
 };
 
+
 /**
  * UPDATE TENANT
  */
 export const updateTenant = async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      name,
-      email,
-      phone,
-      nationalId,
-      emergencyContact,
-    } = req.body;
+    const { name, email, phone, nationalId, emergencyContact } = req.body;
 
     const existingTenant = await prisma.tenant.findUnique({
       where: { id },
@@ -182,23 +163,14 @@ export const updateTenant = async (req, res) => {
       return res.status(404).json({ message: "Tenant not found" });
     }
 
-    // Update user details
     await prisma.user.update({
       where: { id: existingTenant.userId },
-      data: {
-        name,
-        email,
-      },
+      data: { name, email },
     });
 
-    // Update tenant profile
     const updatedTenant = await prisma.tenant.update({
       where: { id },
-      data: {
-        phone,
-        nationalId,
-        emergencyContact,
-      },
+      data: { phone, nationalId, emergencyContact },
       include: {
         user: {
           select: {
@@ -221,6 +193,7 @@ export const updateTenant = async (req, res) => {
   }
 };
 
+
 /**
  * DELETE TENANT
  */
@@ -230,6 +203,7 @@ export const deleteTenant = async (req, res) => {
 
     const tenant = await prisma.tenant.findUnique({
       where: { id },
+      include: { leases: true },
     });
 
     if (!tenant) {
@@ -237,13 +211,14 @@ export const deleteTenant = async (req, res) => {
     }
 
     await prisma.$transaction(async (tx) => {
-      if (tenant.unitId) {
-        await tx.unit.update({
-          where: { id: tenant.unitId },
-          data: {
-            status: "AVAILABLE",
-          },
-        });
+      // Terminate active leases
+      for (const lease of tenant.leases) {
+        if (lease.status === "ACTIVE") {
+          await tx.unit.update({
+            where: { id: lease.unitId },
+            data: { status: "AVAILABLE" },
+          });
+        }
       }
 
       await tx.user.delete({
@@ -251,7 +226,7 @@ export const deleteTenant = async (req, res) => {
       });
     });
 
-    return res.json({ message: "Tenant deleted and unit freed successfully" });
+    return res.json({ message: "Tenant deleted successfully" });
 
   } catch (error) {
     console.error(error);
@@ -260,16 +235,13 @@ export const deleteTenant = async (req, res) => {
 };
 
 
-
 /**
- * GET MY PROFILE (TENANT ONLY)
+ * GET MY PROFILE
  */
 export const getMyTenantProfile = async (req, res) => {
   try {
     const tenant = await prisma.tenant.findFirst({
-      where: {
-        userId: req.user.id,
-      },
+      where: { userId: req.user.id },
       include: {
         user: {
           select: {
@@ -278,6 +250,10 @@ export const getMyTenantProfile = async (req, res) => {
             email: true,
             role: true,
           },
+        },
+        leases: {
+          where: { status: "ACTIVE" },
+          include: { unit: true },
         },
       },
     });
